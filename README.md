@@ -122,24 +122,27 @@ npm run dev        # runs on http://localhost:3000
 - **No authentication** — single-user internal tool; add JWT middleware to scale
 - **No pagination** — reasonable task volumes per client; add `LIMIT/OFFSET` to scale
 - **Overdue is computed, not stored** — frontend derives it from `due_date < today`; never written to DB
-- **Search is client-side** — runs on already-fetched data via `useMemo`; filters are server-side SQL
-- **Basic validation only** — title and due date required; no complex business rules
 
 ---
 
 ## 🚀 Deployment
 
-### Backend → Render / Railway
+### Live Application
 
-1. Push `backend/` to GitHub
-2. Create Web Service → start command: `node server.js`
-3. Copy the deployed URL (e.g. `https://compliance-api.onrender.com`)
+- **Frontend**: https://mini-compliance-tracker.vercel.app
+- **Backend API**: https://mini-compliance-tracker.onrender.com
 
-### Frontend → Vercel / Netlify
+### Backend → Render
 
-1. Push `frontend/` to GitHub
-2. Set env variable: `VITE_API_URL=https://your-backend-url`
-3. Deploy
+1. ✅ Deployed to Render: `https://mini-compliance-tracker.onrender.com`
+2. Uses better-sqlite3 for reliable cloud deployment
+3. Environment: Node.js, Start command: `npm start`
+
+### Frontend → Vercel
+
+1. ✅ Deployed to Vercel: `https://mini-compliance-tracker.vercel.app`
+2. Environment variable set: `VITE_API_URL=https://mini-compliance-tracker.onrender.com`
+3. Build process: `cd frontend && npm run build`
 
 ---
 
