@@ -8,7 +8,10 @@ export default defineConfig({
     proxy: {
       '/clients': 'http://localhost:5000',
       '/tasks':   'http://localhost:5000',
-      '/stats':   'http://localhost:5000',   // ← was missing before this fix
+      '/stats':   'http://localhost:5000',
     }
+  },
+  build: {
+    outDir: 'dist'
   }
 })
