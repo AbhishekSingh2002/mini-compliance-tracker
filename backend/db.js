@@ -1,12 +1,25 @@
 const Database = require("better-sqlite3");
 const path = require("path");
+const fs = require("fs");
 
+const dbPath = path.join(__dirname, "database.db");
+
+// Ensure database directory exists and create database if it doesn't exist
 let db;
 try {
-  db = new Database(path.join(__dirname, "database.db"));
+  // Create database file if it doesn't exist
+  if (!fs.existsSync(dbPath)) {
+    console.log(" Creating new database file...");
+    // Create empty database file
+    const tempDb = new Database(dbPath);
+    tempDb.close();
+  }
+  
+  db = new Database(dbPath);
   console.log("✅ Database connected successfully");
 } catch (err) {
   console.error("❌ Database connection failed:", err.message);
+  console.error("Database path:", dbPath);
   process.exit(1);
 }
 
