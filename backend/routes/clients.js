@@ -4,77 +4,77 @@ const db = require("../db");
 
 // GET all clients
 router.get("/", (req, res) => {
-  db.all("SELECT * FROM clients ORDER BY company_name", [], (err, rows) => {
-    if (err) return res.status(500).json({ error: err.message });
+  try {
+    const rows = db.prepare("SELECT * FROM clients ORDER BY company_name").all();
     res.json(rows);
-  });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-// GET single client by ID
+// GET single client
 router.get("/:id", (req, res) => {
-  db.get("SELECT * FROM clients WHERE id = ?", [req.params.id], (err, row) => {
-    if (err) return res.status(500).json({ error: err.message });
+  try {
+    const row = db.prepare("SELECT * FROM clients WHERE id = ?").get(req.params.id);
     if (!row) return res.status(404).json({ error: "Client not found" });
     res.json(row);
-  });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-// POST create new client
+// POST create client
 router.post("/", (req, res) => {
-  const { company_name, country, entity_type } = req.body;
+  try {
+    const { company_name, country, entity_type } = req.body;
+    if (!company_name || !company_name.trim())
+      return res.status(400).json({ error: "Company name is required" });
 
-  if (!company_name || !company_name.trim()) {
-    return res.status(400).json({ error: "Company name is required" });
+    const result = db.prepare(
+      "INSERT INTO clients (company_name, country, entity_type) VALUES (?, ?, ?)"
+    ).run(company_name.trim(), country || "", entity_type || "");
+
+    res.status(201).json({
+      id: result.lastInsertRowid,
+      company_name: company_name.trim(),
+      country: country || "",
+      entity_type: entity_type || "",
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
-
-  db.run(
-    `INSERT INTO clients (company_name, country, entity_type) VALUES (?, ?, ?)`,
-    [company_name.trim(), country || "", entity_type || ""],
-    function (err) {
-      if (err) return res.status(500).json({ error: err.message });
-      res.status(201).json({
-        id: this.lastID,
-        company_name: company_name.trim(),
-        country: country || "",
-        entity_type: entity_type || "",
-      });
-    }
-  );
 });
 
 // PUT update client
 router.put("/:id", (req, res) => {
-  const { company_name, country, entity_type } = req.body;
+  try {
+    const { company_name, country, entity_type } = req.body;
+    const result = db.prepare(
+      `UPDATE clients SET
+        company_name = COALESCE(?, company_name),
+        country      = COALESCE(?, country),
+        entity_type  = COALESCE(?, entity_type)
+      WHERE id = ?`
+    ).run(company_name, country, entity_type, req.params.id);
 
-  db.run(
-    `UPDATE clients SET
-      company_name = COALESCE(?, company_name),
-      country      = COALESCE(?, country),
-      entity_type  = COALESCE(?, entity_type)
-    WHERE id = ?`,
-    [company_name, country, entity_type, req.params.id],
-    function (err) {
-      if (err) return res.status(500).json({ error: err.message });
-      if (this.changes === 0) return res.status(404).json({ error: "Client not found" });
-      db.get("SELECT * FROM clients WHERE id = ?", [req.params.id], (err2, row) => {
-        if (err2) return res.status(500).json({ error: err2.message });
-        res.json(row);
-      });
-    }
-  );
+    if (result.changes === 0) return res.status(404).json({ error: "Client not found" });
+    const row = db.prepare("SELECT * FROM clients WHERE id = ?").get(req.params.id);
+    res.json(row);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-// DELETE client (and all their tasks)
+// DELETE client and all their tasks
 router.delete("/:id", (req, res) => {
-  db.run("DELETE FROM tasks WHERE client_id = ?", [req.params.id], (err) => {
-    if (err) return res.status(500).json({ error: err.message });
-
-    db.run("DELETE FROM clients WHERE id = ?", [req.params.id], function (err2) {
-      if (err2) return res.status(500).json({ error: err2.message });
-      if (this.changes === 0) return res.status(404).json({ error: "Client not found" });
-      res.json({ deleted: true, id: req.params.id });
-    });
-  });
+  try {
+    db.prepare("DELETE FROM tasks WHERE client_id = ?").run(req.params.id);
+    const result = db.prepare("DELETE FROM clients WHERE id = ?").run(req.params.id);
+    if (result.changes === 0) return res.status(404).json({ error: "Client not found" });
+    res.json({ deleted: true, id: Number(req.params.id) });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 module.exports = router;

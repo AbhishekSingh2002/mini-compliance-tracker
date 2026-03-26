@@ -2,126 +2,117 @@ const express = require("express");
 const router = express.Router();
 const db = require("../db");
 
-// ⚠️  IMPORTANT: Specific static routes (/stats, /single) must be declared
-//     BEFORE the dynamic route (/:clientId) to avoid Express swallowing them.
+// ⚠️ Static routes MUST come before dynamic /:param routes
 
 // GET stats for a client
-// Returns: total, completed, pending, in_progress, overdue
 router.get("/stats/:clientId", (req, res) => {
-  const today = new Date().toISOString().split("T")[0];
-  db.get(
-    `SELECT
-      COUNT(*)                                                                  AS total,
-      SUM(CASE WHEN status = 'Completed'   THEN 1 ELSE 0 END)                  AS completed,
-      SUM(CASE WHEN status = 'Pending'     THEN 1 ELSE 0 END)                  AS pending,
-      SUM(CASE WHEN status = 'In Progress' THEN 1 ELSE 0 END)                  AS in_progress,
-      SUM(CASE WHEN status != 'Completed' AND due_date < ? THEN 1 ELSE 0 END)  AS overdue
-    FROM tasks WHERE client_id = ?`,
-    [today, req.params.clientId],
-    (err, row) => {
-      if (err) return res.status(500).json({ error: err.message });
-      res.json(row);
-    }
-  );
+  try {
+    const today = new Date().toISOString().split("T")[0];
+    const row = db.prepare(
+      `SELECT
+        COUNT(*)                                                                 AS total,
+        SUM(CASE WHEN status = 'Completed'   THEN 1 ELSE 0 END)                 AS completed,
+        SUM(CASE WHEN status = 'Pending'     THEN 1 ELSE 0 END)                 AS pending,
+        SUM(CASE WHEN status = 'In Progress' THEN 1 ELSE 0 END)                 AS in_progress,
+        SUM(CASE WHEN status != 'Completed' AND due_date < ? THEN 1 ELSE 0 END) AS overdue
+      FROM tasks WHERE client_id = ?`
+    ).get(today, req.params.clientId);
+    res.json(row);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // GET single task by ID
 router.get("/single/:id", (req, res) => {
-  db.get("SELECT * FROM tasks WHERE id = ?", [req.params.id], (err, row) => {
-    if (err) return res.status(500).json({ error: err.message });
+  try {
+    const row = db.prepare("SELECT * FROM tasks WHERE id = ?").get(req.params.id);
     if (!row) return res.status(404).json({ error: "Task not found" });
     res.json(row);
-  });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // GET tasks for a client with optional filters
-// Query params: ?status=  ?category=  ?priority=
 router.get("/:clientId", (req, res) => {
-  const { status, category, priority } = req.query;
+  try {
+    const { status, category, priority } = req.query;
+    let query = "SELECT * FROM tasks WHERE client_id = ?";
+    const params = [req.params.clientId];
 
-  let query = "SELECT * FROM tasks WHERE client_id = ?";
-  const params = [req.params.clientId];
+    if (status)   { query += " AND status = ?";   params.push(status); }
+    if (category) { query += " AND category = ?"; params.push(category); }
+    if (priority) { query += " AND priority = ?"; params.push(priority); }
+    query += " ORDER BY due_date ASC";
 
-  if (status)   { query += " AND status = ?";   params.push(status); }
-  if (category) { query += " AND category = ?"; params.push(category); }
-  if (priority) { query += " AND priority = ?"; params.push(priority); }
-
-  query += " ORDER BY due_date ASC";
-
-  db.all(query, params, (err, rows) => {
-    if (err) return res.status(500).json({ error: err.message });
+    const rows = db.prepare(query).all(...params);
     res.json(rows);
-  });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-// POST create a new task
+// POST create task
 router.post("/", (req, res) => {
-  const { client_id, title, description, category, due_date, status, priority } = req.body;
+  try {
+    const { client_id, title, description, category, due_date, status, priority } = req.body;
+    if (!title || !title.trim()) return res.status(400).json({ error: "Title is required" });
+    if (!due_date)  return res.status(400).json({ error: "Due date is required" });
+    if (!client_id) return res.status(400).json({ error: "client_id is required" });
 
-  if (!title || !title.trim()) {
-    return res.status(400).json({ error: "Title is required" });
-  }
-  if (!due_date) {
-    return res.status(400).json({ error: "Due date is required" });
-  }
-  if (!client_id) {
-    return res.status(400).json({ error: "client_id is required" });
-  }
-
-  db.run(
-    `INSERT INTO tasks (client_id, title, description, category, due_date, status, priority)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    [
+    const result = db.prepare(
+      `INSERT INTO tasks (client_id, title, description, category, due_date, status, priority)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`
+    ).run(
       client_id,
       title.trim(),
       description || "",
       category || "General",
       due_date,
       status || "Pending",
-      priority || "Medium",
-    ],
-    function (err) {
-      if (err) return res.status(500).json({ error: err.message });
-      db.get("SELECT * FROM tasks WHERE id = ?", [this.lastID], (err2, row) => {
-        if (err2) return res.status(500).json({ error: err2.message });
-        res.status(201).json(row);
-      });
-    }
-  );
+      priority || "Medium"
+    );
+
+    const row = db.prepare("SELECT * FROM tasks WHERE id = ?").get(result.lastInsertRowid);
+    res.status(201).json(row);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-// PUT update a task (any field via COALESCE — only sent fields are changed)
+// PUT update task
 router.put("/:id", (req, res) => {
-  const { status, title, description, category, due_date, priority } = req.body;
+  try {
+    const { status, title, description, category, due_date, priority } = req.body;
+    const result = db.prepare(
+      `UPDATE tasks SET
+        status      = COALESCE(?, status),
+        title       = COALESCE(?, title),
+        description = COALESCE(?, description),
+        category    = COALESCE(?, category),
+        due_date    = COALESCE(?, due_date),
+        priority    = COALESCE(?, priority)
+      WHERE id = ?`
+    ).run(status, title, description, category, due_date, priority, req.params.id);
 
-  db.run(
-    `UPDATE tasks SET
-      status      = COALESCE(?, status),
-      title       = COALESCE(?, title),
-      description = COALESCE(?, description),
-      category    = COALESCE(?, category),
-      due_date    = COALESCE(?, due_date),
-      priority    = COALESCE(?, priority)
-    WHERE id = ?`,
-    [status, title, description, category, due_date, priority, req.params.id],
-    function (err) {
-      if (err) return res.status(500).json({ error: err.message });
-      if (this.changes === 0) return res.status(404).json({ error: "Task not found" });
-      db.get("SELECT * FROM tasks WHERE id = ?", [req.params.id], (err2, row) => {
-        if (err2) return res.status(500).json({ error: err2.message });
-        res.json(row);
-      });
-    }
-  );
+    if (result.changes === 0) return res.status(404).json({ error: "Task not found" });
+    const row = db.prepare("SELECT * FROM tasks WHERE id = ?").get(req.params.id);
+    res.json(row);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-// DELETE a task
+// DELETE task
 router.delete("/:id", (req, res) => {
-  db.run("DELETE FROM tasks WHERE id = ?", [req.params.id], function (err) {
-    if (err) return res.status(500).json({ error: err.message });
-    if (this.changes === 0) return res.status(404).json({ error: "Task not found" });
+  try {
+    const result = db.prepare("DELETE FROM tasks WHERE id = ?").run(req.params.id);
+    if (result.changes === 0) return res.status(404).json({ error: "Task not found" });
     res.json({ deleted: true, id: Number(req.params.id) });
-  });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 module.exports = router;
