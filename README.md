@@ -7,35 +7,36 @@ A SaaS-style compliance task management system for tracking regulatory tasks per
 ## 📁 Project Structure
 
 ```
-mini-compliance-tracker/
+mini-compliance-tracker/          ← repo root
+│
+├── vercel.json                   # Tells Vercel to build from /frontend
+├── GIT_HISTORY.md
+├── README.md
 │
 ├── backend/
-│   ├── db.js                  # SQLite setup + seed data
-│   ├── server.js              # Express app entry + route mounting
+│   ├── db.js                     # SQLite setup + seed data
+│   ├── server.js                 # Express app entry + route mounting
 │   ├── package.json
 │   └── routes/
-│       ├── clients.js         # CRUD routes for clients
-│       └── tasks.js           # CRUD + filter + stats routes for tasks
+│       ├── clients.js            # CRUD routes for clients
+│       └── tasks.js              # CRUD + filter + stats routes for tasks
 │
-├── frontend/
-│   ├── index.html
-│   ├── vite.config.js
-│   ├── package.json
-│   └── src/
-│       ├── main.jsx           # React entry point
-│       ├── index.css          # Global design system + CSS variables
-│       ├── api.js             # Axios API helpers
-│       ├── App.jsx            # Root layout + state + search/sort logic
-│       └── components/
-│           ├── ClientList.jsx # Sidebar: client list + add client form
-│           ├── TaskList.jsx   # Task cards: expand, update status, delete
-│           ├── AddTask.jsx    # New task form (6 fields)
-│           ├── Filters.jsx    # Status / category / priority dropdowns
-│           ├── SearchSort.jsx # Search bar + sort dropdown
-│           └── StatsChart.jsx # SVG donut chart: completion breakdown
-│
-├── README.md
-└── GIT_HISTORY.md
+└── frontend/
+    ├── index.html
+    ├── vite.config.js
+    ├── package.json
+    └── src/
+        ├── main.jsx              # React entry point
+        ├── index.css             # Global design system + CSS variables
+        ├── api.js                # Axios API helpers
+        ├── App.jsx               # Root layout + state + search/sort logic
+        └── components/
+            ├── ClientList.jsx    # Sidebar: client list + add client form
+            ├── TaskList.jsx      # Task cards: expand, update status, delete
+            ├── AddTask.jsx       # New task form (6 fields)
+            ├── Filters.jsx       # Status / category / priority dropdowns
+            ├── SearchSort.jsx    # Search bar + sort dropdown
+            └── StatsChart.jsx    # SVG donut chart: completion breakdown
 ```
 
 ---
@@ -60,7 +61,7 @@ npm install
 npm run dev        # runs on http://localhost:3000
 ```
 
-> The Vite dev server proxies `/clients`, `/tasks`, `/stats` to `localhost:5000` automatically — no CORS issues in development.
+> The Vite dev server proxies `/clients`, `/tasks`, `/stats` to `localhost:5000` — no CORS issues in development.
 
 ---
 
@@ -102,6 +103,32 @@ npm run dev        # runs on http://localhost:3000
 
 ---
 
+## 🚀 Deployment
+
+### Step 1 — Deploy Backend to Render
+
+1. Go to [render.com](https://render.com) → New → Web Service
+2. Connect your GitHub repo
+3. Set these settings:
+   - **Root Directory**: `backend`
+   - **Build Command**: `npm install`
+   - **Start Command**: `node server.js`
+4. Deploy and copy your URL e.g. `https://compliance-api.onrender.com`
+
+### Step 2 — Deploy Frontend to Vercel
+
+1. Go to [vercel.com](https://vercel.com) → New Project
+2. Import your GitHub repo
+3. Vercel auto-detects settings from `vercel.json` — **do not override them**
+4. Add this Environment Variable:
+   - **Key**: `VITE_API_URL`
+   - **Value**: `https://your-backend-url.onrender.com` ← your Render URL
+5. Click **Deploy**
+
+> ✅ The `vercel.json` at the repo root sets `"rootDirectory": "frontend"` so Vercel builds from the right folder automatically.
+
+---
+
 ## ✅ Features
 
 - 👥 View, add, and manage multiple clients
@@ -122,27 +149,8 @@ npm run dev        # runs on http://localhost:3000
 - **No authentication** — single-user internal tool; add JWT middleware to scale
 - **No pagination** — reasonable task volumes per client; add `LIMIT/OFFSET` to scale
 - **Overdue is computed, not stored** — frontend derives it from `due_date < today`; never written to DB
-
----
-
-## 🚀 Deployment
-
-### Live Application
-
-- **Frontend**: https://mini-compliance-tracker.vercel.app
-- **Backend API**: https://mini-compliance-tracker.onrender.com
-
-### Backend → Render
-
-1. ✅ Deployed to Render: `https://mini-compliance-tracker.onrender.com`
-2. Uses better-sqlite3 for reliable cloud deployment
-3. Environment: Node.js, Start command: `npm start`
-
-### Frontend → Vercel
-
-1. ✅ Deployed to Vercel: `https://mini-compliance-tracker.vercel.app`
-2. Environment variable set: `VITE_API_URL=https://mini-compliance-tracker.onrender.com`
-3. Build process: `cd frontend && npm run build`
+- **Search is client-side** — runs on already-fetched data via `useMemo`; filters are server-side SQL
+- **Basic validation only** — title and due date required; no complex business rules
 
 ---
 
