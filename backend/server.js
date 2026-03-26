@@ -1,9 +1,24 @@
 const express = require("express");
 const cors = require("cors");
-const db = require("./db");
 
-const clientRoutes = require("./routes/clients");
-const taskRoutes   = require("./routes/tasks");
+let db;
+try {
+  db = require("./db");
+  console.log("✅ Database module loaded");
+} catch (err) {
+  console.error("❌ Failed to load database module:", err.message);
+  process.exit(1);
+}
+
+let clientRoutes, taskRoutes;
+try {
+  clientRoutes = require("./routes/clients");
+  taskRoutes   = require("./routes/tasks");
+  console.log("✅ Routes loaded");
+} catch (err) {
+  console.error("❌ Failed to load routes:", err.message);
+  process.exit(1);
+}
 
 const app = express();
 app.use(cors());

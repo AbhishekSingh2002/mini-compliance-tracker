@@ -1,7 +1,14 @@
 const Database = require("better-sqlite3");
 const path = require("path");
 
-const db = new Database(path.join(__dirname, "database.db"));
+let db;
+try {
+  db = new Database(path.join(__dirname, "database.db"));
+  console.log("✅ Database connected successfully");
+} catch (err) {
+  console.error("❌ Database connection failed:", err.message);
+  process.exit(1);
+}
 
 // Enable WAL mode for better performance
 db.pragma("journal_mode = WAL");
