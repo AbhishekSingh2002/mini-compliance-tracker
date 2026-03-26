@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const API = import.meta.env.VITE_API_URL || "http://localhost:5000";
+const API = import.meta.env.VITE_API_URL || "https://mini-compliance-tracker-t63r.onrender.com";
 
 export const getClients = () => axios.get(`${API}/clients`);
 export const createClient = (data) => axios.post(`${API}/clients`, data);
