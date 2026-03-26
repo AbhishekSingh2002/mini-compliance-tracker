@@ -32,16 +32,23 @@ app.use("/tasks",   taskRoutes);
 app.get("/stats/:clientId", (req, res) => {
   try {
     const today = new Date().toISOString().split("T")[0];
-    const row = db.prepare(
+    db.get(
       `SELECT
         COUNT(*)                                                                 AS total,
         SUM(CASE WHEN status = 'Completed'   THEN 1 ELSE 0 END)                 AS completed,
         SUM(CASE WHEN status = 'Pending'     THEN 1 ELSE 0 END)                 AS pending,
         SUM(CASE WHEN status = 'In Progress' THEN 1 ELSE 0 END)                 AS in_progress,
         SUM(CASE WHEN status != 'Completed' AND due_date < ? THEN 1 ELSE 0 END) AS overdue
-      FROM tasks WHERE client_id = ?`
-    ).get(today, req.params.clientId);
-    res.json(row);
+      FROM tasks WHERE client_id = ?`,
+      [today, req.params.clientId],
+      (err, row) => {
+        if (err) {
+          res.status(500).json({ error: err.message });
+        } else {
+          res.json(row);
+        }
+      }
+    );
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
